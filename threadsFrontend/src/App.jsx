@@ -13,7 +13,7 @@ import Login from './Login'
 import Register from './Register'
 import { NotificationProvider } from './NotificationContext'
 
-function Feed({ onCommentClick }) {
+function Feed({ onCommentClick, setProfileRefresh }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState(null);
@@ -199,6 +199,8 @@ function Feed({ onCommentClick }) {
                 onLike={handleLike}
                 postId={post.id}
                 user={user}
+                onRepostUpdate={() => setProfileRefresh(Date.now())}
+                post={post}
               />
             );
           } else if (item.type === 'repost') {
@@ -256,6 +258,8 @@ function Feed({ onCommentClick }) {
                 onLike={handleLike}
                 postId={originalPost.id}
                 user={user}
+                onRepostUpdate={() => setProfileRefresh(Date.now())}
+                post={originalPost}
               />
             );
           }
@@ -268,7 +272,13 @@ function Feed({ onCommentClick }) {
 
 function App() {
   const [commentModal, setCommentModal] = useState({ open: false, post: null })
-  const [profileRefresh, setProfileRefresh] = useState(0);
+  const [profileRefresh, setProfileRefresh] = useState(Date.now());
+  
+  // Debug: Log profileRefresh changes
+  useEffect(() => {
+    console.log('App: profileRefresh changed to:', profileRefresh);
+  }, [profileRefresh]);
+  
   return (
     <NotificationProvider>
       <BrowserRouter>
@@ -296,7 +306,7 @@ function RouterApp({ commentModal, setCommentModal, profileRefresh, setProfileRe
   const isAuthRoute = location.pathname === '/login' || location.pathname === '/register';
 
   // Handler to refresh profile after a new post
-  const handlePostCreated = () => setProfileRefresh(r => r + 1);
+  const handlePostCreated = () => setProfileRefresh(Date.now());
 
   if (isAuthRoute) {
     return (
@@ -318,9 +328,9 @@ function RouterApp({ commentModal, setCommentModal, profileRefresh, setProfileRe
       )}
       <CommentModal open={commentModal.open} onClose={handleCommentModalClose} post={commentModal.post} />
       <Routes>
-        <Route path="/" element={<Feed onCommentClick={handleCommentClick} />} />
+        <Route path="/" element={<Feed onCommentClick={handleCommentClick} setProfileRefresh={setProfileRefresh} />} />
         <Route path="/notifications" element={<Notifications />} />
-        <Route path="/profile" element={<Profile onPostCreated={handlePostCreated} key={profileRefresh} />} />
+        <Route path="/profile" element={<Profile onPostCreated={handlePostCreated} profileRefresh={profileRefresh} />} />
         <Route path="/post" element={null} />
         <Route path="/search" element={null} />
       </Routes>

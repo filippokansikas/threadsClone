@@ -6,6 +6,9 @@ const path = require('path');
 const fs = require('fs');
 const { User } = require('../models/associations');
 const auth = require('../middleware/auth');
+const Conversation = require('../models/Conversation');
+const Message = require('../models/Message');
+const { Op } = require('sequelize');
 
 const router = express.Router();
 
@@ -141,6 +144,112 @@ router.get('/profile', auth, async (req, res) => {
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get all conversations for the logged-in user
+router.get('/conversations', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const conversations = await Conversation.findAll({
+      where: {
+        [Op.or]: [
+          { user1Id: userId },
+          { user2Id: userId }
+        ]
+      },
+      include: [
+        { model: User, as: 'user1', attributes: ['id', 'username', 'profilePicture'] },
+        { model: User, as: 'user2', attributes: ['id', 'username', 'profilePicture'] }
+      ],
+      order: [['updatedAt', 'DESC']]
+    });
+    res.json(conversations);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch conversations' });
+  }
+});
+
+// Get messages for a conversation
+router.get('/conversations/:conversationId/messages', auth, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+    // Check if user is part of the conversation
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation || (conversation.user1Id !== userId && conversation.user2Id !== userId)) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    const messages = await Message.findAll({
+      where: { conversationId },
+      include: [{ model: User, attributes: ['id', 'username', 'profilePicture'] }],
+      order: [['createdAt', 'ASC']]
+    });
+    res.json(messages);
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to fetch messages' });
+  }
+});
+
+// Mark messages as read in a conversation
+router.put('/conversations/:conversationId/read', auth, async (req, res) => {
+  try {
+    const { conversationId } = req.params;
+    const userId = req.user.id;
+    
+    // Check if user is part of the conversation
+    const conversation = await Conversation.findByPk(conversationId);
+    if (!conversation || (conversation.user1Id !== userId && conversation.user2Id !== userId)) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    
+    // Update conversation's updatedAt to mark as read
+    await conversation.update({ updatedAt: new Date() });
+    
+    res.json({ message: 'Messages marked as read' });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to mark messages as read' });
+  }
+});
+
+// Get unread message count for all conversations
+router.get('/conversations/unread/count', auth, async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const conversations = await Conversation.findAll({
+      where: {
+        [Op.or]: [
+          { user1Id: userId },
+          { user2Id: userId }
+        ]
+      },
+      include: [
+        { model: User, as: 'user1', attributes: ['id', 'username', 'profilePicture'] },
+        { model: User, as: 'user2', attributes: ['id', 'username', 'profilePicture'] }
+      ],
+      order: [['updatedAt', 'DESC']]
+    });
+    
+    let unreadCount = 0;
+    for (const conversation of conversations) {
+      const messages = await Message.findAll({
+        where: { conversationId: conversation.id },
+        order: [['createdAt', 'DESC']],
+        limit: 1
+      });
+      
+      if (messages.length > 0) {
+        const lastMessage = messages[0];
+        // If the last message is from another user and is newer than the conversation's updatedAt
+        if (lastMessage.senderId !== userId && lastMessage.createdAt > conversation.updatedAt) {
+          unreadCount++;
+        }
+      }
+    }
+    
+    res.json({ unreadCount });
+  } catch (err) {
+    res.status(500).json({ message: 'Failed to get unread count' });
   }
 });
 

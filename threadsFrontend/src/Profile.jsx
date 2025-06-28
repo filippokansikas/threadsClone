@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import PostCard from './PostCard';
 import RepostCard from './RepostCard';
+import SettingsModal from './SettingsModal';
 
-function Profile({ onPostCreated }) {
+function Profile({ onPostCreated, profileRefresh }) {
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [reposts, setReposts] = useState([]);
@@ -11,6 +12,13 @@ function Profile({ onPostCreated }) {
   const [error, setError] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(null);
   const [activeTab, setActiveTab] = useState('posts'); // 'posts' or 'reposts'
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
+  // Debug: Log when component mounts/unmounts
+  useEffect(() => {
+    console.log('Profile: Component mounted with profileRefresh:', profileRefresh);
+    return () => console.log('Profile: Component unmounting');
+  }, [profileRefresh]);
 
   useEffect(() => {
     // Get user info from localStorage
@@ -21,6 +29,7 @@ function Profile({ onPostCreated }) {
   }, []);
 
   const fetchPosts = useCallback(async () => {
+    console.log('Profile: fetchPosts called, profileRefresh:', profileRefresh);
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -38,20 +47,34 @@ function Profile({ onPostCreated }) {
         // Filter reposts by the logged-in user
         const userReposts = data
           .filter(item => item.type === 'repost' && item.data.reposter && Number(item.data.reposter.id) === Number(user.id));
+        console.log('Profile: Found user reposts:', userReposts.length);
         setReposts(userReposts);
       } else {
         setPosts([]);
         setReposts([]);
       }
     } catch (err) {
+      console.error('Profile: Error fetching posts:', err);
       setPosts([]);
       setReposts([]);
     }
     setLoading(false);
-  }, [user]);
+  }, [user, profileRefresh]);
 
+  // Force re-fetch whenever profileRefresh changes
   useEffect(() => {
-    if (user) fetchPosts();
+    if (user && profileRefresh) {
+      console.log('Profile: profileRefresh changed, forcing re-fetch:', profileRefresh);
+      fetchPosts();
+    }
+  }, [profileRefresh, user, fetchPosts]);
+
+  // Initial fetch when user is loaded
+  useEffect(() => {
+    if (user) {
+      console.log('Profile: Initial fetch for user:', user.id);
+      fetchPosts();
+    }
   }, [user, fetchPosts]);
 
   // Handler to refresh posts after a new post is created
@@ -99,6 +122,11 @@ function Profile({ onPostCreated }) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [dropdownOpen]);
 
+  // Handler for updating user after settings change
+  const handleUserUpdate = (updatedUser) => {
+    setUser(updatedUser);
+  };
+
   if (!user) {
     return <div className="text-white text-center mt-16">You must be logged in to view your profile.</div>;
   }
@@ -106,12 +134,24 @@ function Profile({ onPostCreated }) {
   return (
     <div className="min-h-screen bg-black flex flex-col items-center pt-0 px-0">
       {/* Profile Header */}
-      <div className="w-full max-w-xl flex flex-col items-center py-10">
+      <div className="w-full max-w-xl flex flex-col items-center py-10 relative">
+        {/* Settings Button */}
+        <button
+          className="absolute top-4 right-4 p-2 rounded-full bg-neutral-800 hover:bg-neutral-700 text-white"
+          onClick={() => setSettingsOpen(true)}
+          aria-label="Edit Profile Settings"
+        >
+          {/* Standard Gear Icon */}
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.25 2.25c.966 0 1.75.784 1.75 1.75v.5a7.001 7.001 0 0 1 2.45.7l.35-.35a1.75 1.75 0 1 1 2.475 2.475l-.35.35a7.001 7.001 0 0 1 .7 2.45h.5c.966 0 1.75.784 1.75 1.75s-.784 1.75-1.75 1.75h-.5a7.001 7.001 0 0 1-.7 2.45l.35.35a1.75 1.75 0 1 1-2.475 2.475l-.35-.35a7.001 7.001 0 0 1-2.45.7v.5c0 .966-.784 1.75-1.75 1.75s-1.75-.784-1.75-1.75v-.5a7.001 7.001 0 0 1-2.45-.7l-.35.35a1.75 1.75 0 1 1-2.475-2.475l.35-.35a7.001 7.001 0 0 1-.7-2.45h-.5c-.966 0-1.75-.784-1.75-1.75s.784-1.75 1.75-1.75h.5a7.001 7.001 0 0 1 .7-2.45l-.35-.35A1.75 1.75 0 1 1 6.8 4.65l.35.35a7.001 7.001 0 0 1 2.45-.7v-.5c0-.966.784-1.75 1.75-1.75zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+          </svg>
+        </button>
         <img src={user.profilePicture || 'https://i.pravatar.cc/100'} alt="avatar" className="w-24 h-24 rounded-full object-cover border-4 border-neutral-800 mb-4" />
         <h1 className="text-2xl font-bold text-white mb-1">@{user.username}</h1>
         <p className="text-neutral-400 text-center mb-4">{user.bio}</p>
         <div className="w-full border-b border-neutral-800 mb-6"></div>
       </div>
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} user={user} onUpdate={handleUserUpdate} />
       
       {/* Tabs */}
       <div className="w-full max-w-xl px-4 mb-6">
@@ -183,6 +223,7 @@ function Profile({ onPostCreated }) {
                   onLike={handleLike}
                   postId={post.id}
                   user={user}
+                  post={post}
                 />
               );
             })
@@ -241,6 +282,8 @@ function Profile({ onPostCreated }) {
                   onLike={handleLike}
                   postId={originalPost.id}
                   user={user}
+                  onRepostUpdate={() => fetchPosts()} // Refresh when repost status changes
+                  post={originalPost}
                 />
               );
             })

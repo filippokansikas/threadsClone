@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 function Register() {
   const [username, setUsername] = useState('');
@@ -9,6 +10,7 @@ function Register() {
   const [bio, setBio] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,8 +28,12 @@ function Register() {
       });
       const data = await res.json();
       if (res.ok) {
-        setSuccess('Registration successful! You can now log in.');
+        setSuccess('Registration successful! Redirecting to login...');
         setUsername(''); setPassword(''); setConfirm(''); setEmail(''); setProfilePicture(''); setBio('');
+        // Redirect to login page after 2 seconds
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
       } else {
         setError(data.message || 'Registration failed');
       }
@@ -107,4 +113,4 @@ function Register() {
   );
 }
 
-export default Register; 
+export default Register;

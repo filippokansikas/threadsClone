@@ -2,6 +2,8 @@ const User = require('./User');
 const Post = require('./Post');
 const Repost = require('./Repost');
 const Notification = require('./Notification');
+const Conversation = require('./Conversation');
+const Message = require('./Message');
 
 // User associations (already defined in User.js)
 // User.hasMany(Post, { foreignKey: 'userId' });
@@ -29,9 +31,20 @@ Post.hasMany(Repost, { as: 'Reposts', foreignKey: 'originalPostId' });
 // Notification.belongsTo(User, { as: 'sender', foreignKey: 'senderId' });
 // Notification.belongsTo(Post, { as: 'post', foreignKey: 'postId' });
 
+Conversation.hasMany(Message, { foreignKey: 'conversationId', onDelete: 'CASCADE' });
+Message.belongsTo(Conversation, { foreignKey: 'conversationId' });
+
+User.hasMany(Message, { foreignKey: 'senderId', onDelete: 'CASCADE' });
+Message.belongsTo(User, { foreignKey: 'senderId' });
+
+Conversation.belongsTo(User, { as: 'user1', foreignKey: 'user1Id' });
+Conversation.belongsTo(User, { as: 'user2', foreignKey: 'user2Id' });
+
 module.exports = {
   User,
   Post,
   Repost,
-  Notification
+  Notification,
+  Conversation,
+  Message
 }; 
