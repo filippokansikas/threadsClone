@@ -88,14 +88,14 @@ function StartChatModal({ isOpen, onClose, currentUser, targetUser }) {
 
   return (
     <div 
-      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           onClose();
         }
       }}
     >
-      <div className="bg-neutral-900 rounded-2xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+      <div className="bg-neutral-900 w-full h-full flex flex-col">
         {/* Header */}
         <div className="p-4 border-b border-neutral-800">
           <div className="flex items-center justify-between">
