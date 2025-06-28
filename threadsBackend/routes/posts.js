@@ -44,7 +44,34 @@ router.get('/', async (req, res) => {
       ],
       order: [['createdAt', 'DESC']],
     });
-    res.json(posts);
+
+    // Also get all reposts as separate entries
+    const reposts = await Repost.findAll({
+      include: [
+        { model: User, as: 'reposter', attributes: ['id', 'username', 'profilePicture'] },
+        { 
+          model: Post, 
+          as: 'originalPost',
+          include: [{ model: User, attributes: ['id', 'username', 'profilePicture', 'bio'] }]
+        }
+      ],
+      order: [['createdAt', 'DESC']],
+    });
+
+    // Combine posts and reposts, marking reposts with a type
+    const feedItems = [
+      ...posts.map(post => ({ type: 'post', data: post })),
+      ...reposts.map(repost => ({ type: 'repost', data: repost }))
+    ];
+
+    // Sort by creation time (newest first)
+    feedItems.sort((a, b) => {
+      const aTime = a.type === 'post' ? new Date(a.data.createdAt) : new Date(a.data.createdAt);
+      const bTime = b.type === 'post' ? new Date(b.data.createdAt) : new Date(b.data.createdAt);
+      return bTime - aTime;
+    });
+
+    res.json(feedItems);
   } catch (err) {
     console.error('Get posts error:', err);
     res.status(500).json({ message: 'Server error' });
@@ -56,6 +83,7 @@ router.get('/following', auth, async (req, res) => {
   try {
     const user = await User.findByPk(req.user.id, { include: [{ model: User, as: 'Following' }] });
     const followingIds = user.Following.map(u => u.id);
+    
     const posts = await Post.findAll({
       where: { userId: followingIds },
       include: [
@@ -68,7 +96,37 @@ router.get('/following', auth, async (req, res) => {
       ],
       order: [['createdAt', 'DESC']],
     });
-    res.json(posts);
+
+    // Get reposts by followed users
+    const reposts = await Repost.findAll({
+      include: [
+        { model: User, as: 'reposter', attributes: ['id', 'username', 'profilePicture'] },
+        { 
+          model: Post, 
+          as: 'originalPost',
+          include: [{ model: User, attributes: ['id', 'username', 'profilePicture', 'bio'] }]
+        }
+      ],
+      where: {
+        '$reposter.id$': followingIds
+      },
+      order: [['createdAt', 'DESC']],
+    });
+
+    // Combine posts and reposts, marking reposts with a type
+    const feedItems = [
+      ...posts.map(post => ({ type: 'post', data: post })),
+      ...reposts.map(repost => ({ type: 'repost', data: repost }))
+    ];
+
+    // Sort by creation time (newest first)
+    feedItems.sort((a, b) => {
+      const aTime = a.type === 'post' ? new Date(a.data.createdAt) : new Date(a.data.createdAt);
+      const bTime = b.type === 'post' ? new Date(b.data.createdAt) : new Date(b.data.createdAt);
+      return bTime - aTime;
+    });
+
+    res.json(feedItems);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }

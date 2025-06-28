@@ -26,8 +26,10 @@ function Profile({ onPostCreated }) {
       });
       const data = await res.json();
       if (res.ok && user) {
-        // Only show posts created by the logged-in user (using post.User.id)
-        const userPosts = data.filter(post => post.User && post.User.id === user.id);
+        // Filter posts created by the logged-in user from the new API format
+        const userPosts = data
+          .filter(item => item.type === 'post' && item.data.User && item.data.User.id === user.id)
+          .map(item => item.data);
         setPosts(userPosts);
       } else {
         setPosts([]);
@@ -125,7 +127,10 @@ function Profile({ onPostCreated }) {
                 const data = await res.json();
                 setPosts(posts => {
                   const newPosts = [...posts];
-                  newPosts[idx] = { ...newPosts[idx], likes: data.post.likes };
+                  const postIndex = newPosts.findIndex(p => p.id === post.id);
+                  if (postIndex !== -1) {
+                    newPosts[postIndex] = { ...newPosts[postIndex], likes: data.post.likes };
+                  }
                   return newPosts;
                 });
               }

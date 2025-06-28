@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-ro
 import './App.css'
 import Navbar from './Navbar'
 import PostCard from './PostCard'
+import RepostCard from './RepostCard'
 import PostModal from './PostModal'
 import SearchModal from './SearchModal'
 import Notifications from './Notifications'
@@ -147,54 +148,118 @@ function Feed({ onCommentClick }) {
       ) : posts.length === 0 ? (
         <div className="text-neutral-500 text-center mt-16">No posts have been published yet.</div>
       ) : (
-        posts.map((post, idx) => {
-          const isFollowing = post.User && following.includes(post.User.id);
-          const isOwn = user && post.User && post.User.id === user.id;
-          const likes = Array.isArray(post.likes) ? post.likes.map(String) : [];
-          const liked = user && likes.includes(String(user.id));
-          const likesCount = likes.length;
-          const handleLike = async (e) => {
-            if (e && e.preventDefault) e.preventDefault();
-            const token = localStorage.getItem('token');
-            if (!token) return;
-            const res = await fetch(`/api/posts/${post.id}/like`, {
-              method: 'POST',
-              headers: { 'Authorization': `Bearer ${token}` },
-            });
-            if (res.ok) {
-              const data = await res.json();
-              setPosts(posts => {
-                const newPosts = [...posts];
-                newPosts[idx] = { ...newPosts[idx], likes: data.post.likes };
-                return newPosts;
+        posts.map((item, idx) => {
+          if (item.type === 'post') {
+            const post = item.data;
+            const isFollowing = post.User && following.includes(post.User.id);
+            const isOwn = user && post.User && post.User.id === user.id;
+            const likes = Array.isArray(post.likes) ? post.likes.map(String) : [];
+            const liked = user && likes.includes(String(user.id));
+            const likesCount = likes.length;
+            const handleLike = async (e) => {
+              if (e && e.preventDefault) e.preventDefault();
+              const token = localStorage.getItem('token');
+              if (!token) return;
+              const res = await fetch(`/api/posts/${post.id}/like`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
               });
-            }
-          };
-          return (
-            <PostCard
-              key={post.id || idx}
-              avatar={post.User?.profilePicture || 'https://i.pravatar.cc/100'}
-              username={post.User?.username}
-              time={new Date(post.createdAt).toLocaleString()}
-              content={post.content}
-              onCommentClick={() => onCommentClick(post)}
-              showDropdown={isOwn}
-              onDropdownClick={() => handleDropdown(post.id)}
-              dropdownOpen={dropdownOpen === post.id}
-              onDelete={() => handleDelete(post.id)}
-              deleting={deleting === post.id}
-              showFollowButton={user && post.User && post.User.id !== user.id}
-              isFollowing={isFollowing}
-              onFollow={() => handleFollow(post.User.id)}
-              onUnfollow={() => handleUnfollow(post.User.id)}
-              isOwn={isOwn}
-              likesCount={likesCount}
-              liked={liked}
-              onLike={handleLike}
-              postId={post.id}
-              user={user}
-            />
-          );
+              if (res.ok) {
+                const data = await res.json();
+                setPosts(posts => {
+                  const newPosts = [...posts];
+                  const postIndex = newPosts.findIndex(p => p.type === 'post' && p.data.id === post.id);
+                  if (postIndex !== -1) {
+                    newPosts[postIndex] = { ...newPosts[postIndex], data: { ...newPosts[postIndex].data, likes: data.post.likes } };
+                  }
+                  return newPosts;
+                });
+              }
+            };
+            return (
+              <PostCard
+                key={`post-${post.id}-${idx}`}
+                avatar={post.User?.profilePicture || 'https://i.pravatar.cc/100'}
+                username={post.User?.username}
+                time={new Date(post.createdAt).toLocaleString()}
+                content={post.content}
+                onCommentClick={() => onCommentClick(post)}
+                showDropdown={isOwn}
+                onDropdownClick={() => handleDropdown(post.id)}
+                dropdownOpen={dropdownOpen === post.id}
+                onDelete={() => handleDelete(post.id)}
+                deleting={deleting === post.id}
+                showFollowButton={user && post.User && post.User.id !== user.id}
+                isFollowing={isFollowing}
+                onFollow={() => handleFollow(post.User.id)}
+                onUnfollow={() => handleUnfollow(post.User.id)}
+                isOwn={isOwn}
+                likesCount={likesCount}
+                liked={liked}
+                onLike={handleLike}
+                postId={post.id}
+                user={user}
+              />
+            );
+          } else if (item.type === 'repost') {
+            const repost = item.data;
+            const originalPost = repost.originalPost;
+            const isFollowing = originalPost.User && following.includes(originalPost.User.id);
+            const isOwn = user && originalPost.User && originalPost.User.id === user.id;
+            const likes = Array.isArray(originalPost.likes) ? originalPost.likes.map(String) : [];
+            const liked = user && likes.includes(String(user.id));
+            const likesCount = likes.length;
+            const handleLike = async (e) => {
+              if (e && e.preventDefault) e.preventDefault();
+              const token = localStorage.getItem('token');
+              if (!token) return;
+              const res = await fetch(`/api/posts/${originalPost.id}/like`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+              });
+              if (res.ok) {
+                const data = await res.json();
+                setPosts(posts => {
+                  const newPosts = [...posts];
+                  const postIndex = newPosts.findIndex(p => p.type === 'repost' && p.data.originalPost.id === originalPost.id);
+                  if (postIndex !== -1) {
+                    newPosts[postIndex] = { 
+                      ...newPosts[postIndex], 
+                      data: { 
+                        ...newPosts[postIndex].data, 
+                        originalPost: { ...newPosts[postIndex].data.originalPost, likes: data.post.likes } 
+                      } 
+                    };
+                  }
+                  return newPosts;
+                });
+              }
+            };
+            return (
+              <RepostCard
+                key={`repost-${repost.id}-${idx}`}
+                repost={repost}
+                originalPost={originalPost}
+                onCommentClick={() => onCommentClick(originalPost)}
+                showDropdown={isOwn}
+                onDropdownClick={() => handleDropdown(originalPost.id)}
+                dropdownOpen={dropdownOpen === originalPost.id}
+                onDelete={() => handleDelete(originalPost.id)}
+                deleting={deleting === originalPost.id}
+                showFollowButton={user && originalPost.User && originalPost.User.id !== user.id}
+                isFollowing={isFollowing}
+                onFollow={() => handleFollow(originalPost.User.id)}
+                onUnfollow={() => handleUnfollow(originalPost.User.id)}
+                isOwn={isOwn}
+                likesCount={likesCount}
+                liked={liked}
+                onLike={handleLike}
+                postId={originalPost.id}
+                user={user}
+              />
+            );
+          }
+          return null;
         })
       )}
     </div>
