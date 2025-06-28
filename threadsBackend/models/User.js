@@ -11,9 +11,4 @@ const User = sequelize.define('User', {
   timestamps: true,
 });
 
-// Follows join table for many-to-many self-association
-const Follows = sequelize.define('Follows', {}, { timestamps: false });
-User.belongsToMany(User, { as: 'Followers', through: Follows, foreignKey: 'followingId' });
-User.belongsToMany(User, { as: 'Following', through: Follows, foreignKey: 'followerId' });
-
 module.exports = User; 

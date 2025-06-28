@@ -4,32 +4,31 @@ const Repost = require('./Repost');
 const Notification = require('./Notification');
 const Conversation = require('./Conversation');
 const Message = require('./Message');
+const sequelize = require('./sequelize');
 
-// User associations (already defined in User.js)
-// User.hasMany(Post, { foreignKey: 'userId' });
-// Post.belongsTo(User, { foreignKey: 'userId' });
+// Follows join table for many-to-many self-association
+const Follows = sequelize.define('Follows', {}, { timestamps: false });
 
-// Follow associations (already defined in User.js)
-// User.belongsToMany(User, { 
-//   as: 'Following', 
-//   foreignKey: 'followerId', 
-//   through: 'Follows' 
-// });
-// User.belongsToMany(User, { 
-//   as: 'Followers', 
-//   foreignKey: 'followingId', 
-//   through: 'Follows' 
-// });
+// User associations
+User.hasMany(Post, { foreignKey: 'userId' });
+Post.belongsTo(User, { foreignKey: 'userId' });
+
+// Follow associations
+User.belongsToMany(User, { 
+  as: 'Following', 
+  foreignKey: 'followerId', 
+  through: Follows
+});
+User.belongsToMany(User, { 
+  as: 'Followers', 
+  foreignKey: 'followingId', 
+  through: Follows
+});
 
 // Repost associations
 Repost.belongsTo(User, { as: 'reposter', foreignKey: 'reposterId' });
 Repost.belongsTo(Post, { as: 'originalPost', foreignKey: 'originalPostId' });
 Post.hasMany(Repost, { as: 'Reposts', foreignKey: 'originalPostId' });
-
-// Notification associations (already defined in Notification.js)
-// Notification.belongsTo(User, { as: 'recipient', foreignKey: 'recipientId' });
-// Notification.belongsTo(User, { as: 'sender', foreignKey: 'senderId' });
-// Notification.belongsTo(Post, { as: 'post', foreignKey: 'postId' });
 
 Conversation.hasMany(Message, { foreignKey: 'conversationId', onDelete: 'CASCADE' });
 Message.belongsTo(Conversation, { foreignKey: 'conversationId' });

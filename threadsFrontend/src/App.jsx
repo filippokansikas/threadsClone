@@ -12,6 +12,7 @@ import Profile from './Profile'
 import Login from './Login'
 import Register from './Register'
 import { NotificationProvider } from './NotificationContext'
+import StartChatModal from './StartChatModal'
 
 function Feed({ onCommentClick, setProfileRefresh }) {
   const [posts, setPosts] = useState([]);
@@ -296,9 +297,17 @@ function App() {
 function RouterApp({ commentModal, setCommentModal, profileRefresh, setProfileRefresh }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [showChatModal, setShowChatModal] = useState(false);
+  const [chatTargetUser, setChatTargetUser] = useState(null);
 
   const handleCommentClick = (post) => setCommentModal({ open: true, post })
   const handleCommentModalClose = () => setCommentModal({ open: false, post: null })
+
+  // Handle message notification click
+  const handleMessageNotificationClick = (sender) => {
+    setChatTargetUser(sender);
+    setShowChatModal(true);
+  };
 
   // Modal routes
   const isPostModal = location.pathname === '/post';
@@ -329,11 +338,24 @@ function RouterApp({ commentModal, setCommentModal, profileRefresh, setProfileRe
       <CommentModal open={commentModal.open} onClose={handleCommentModalClose} post={commentModal.post} />
       <Routes>
         <Route path="/" element={<Feed onCommentClick={handleCommentClick} setProfileRefresh={setProfileRefresh} />} />
-        <Route path="/notifications" element={<Notifications />} />
+        <Route path="/notifications" element={<Notifications onMessageNotificationClick={handleMessageNotificationClick} />} />
         <Route path="/profile" element={<Profile onPostCreated={handlePostCreated} profileRefresh={profileRefresh} />} />
         <Route path="/post" element={null} />
         <Route path="/search" element={null} />
       </Routes>
+      
+      {/* Chat Modal for message notifications */}
+      {showChatModal && chatTargetUser && (
+        <StartChatModal
+          isOpen={showChatModal}
+          onClose={() => {
+            setShowChatModal(false);
+            setChatTargetUser(null);
+          }}
+          currentUser={JSON.parse(localStorage.getItem('user'))}
+          targetUser={chatTargetUser}
+        />
+      )}
     </>
   )
 }

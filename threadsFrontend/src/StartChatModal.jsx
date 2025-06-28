@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
+import { useNotification } from './NotificationContext';
 
 function StartChatModal({ isOpen, onClose, currentUser, targetUser }) {
   const [socket, setSocket] = useState(null);
@@ -7,6 +8,7 @@ function StartChatModal({ isOpen, onClose, currentUser, targetUser }) {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
+  const { setNotificationIndicator } = useNotification();
 
   useEffect(() => {
     if (isOpen && currentUser && targetUser) {
@@ -67,6 +69,14 @@ function StartChatModal({ isOpen, onClose, currentUser, targetUser }) {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
+      // Check if there are any remaining unread notifications
+      const notificationsResponse = await fetch('/api/notifications', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const notifications = await notificationsResponse.json();
+      const hasUnread = notifications.some(notification => !notification.read);
+      setNotificationIndicator(hasUnread);
     } catch (error) {
       console.error('Failed to mark conversation as read:', error);
     }

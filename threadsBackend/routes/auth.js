@@ -123,4 +123,14 @@ router.get('/following', auth, async (req, res) => {
   }
 });
 
+// Get followers list
+router.get('/followers', auth, async (req, res) => {
+  try {
+    const user = await User.findByPk(req.user.id, { include: [{ model: User, as: 'Followers' }] });
+    res.json(user.Followers);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router; 

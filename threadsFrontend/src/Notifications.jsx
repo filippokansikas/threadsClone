@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getNotifications, markNotificationAsRead, markAllNotificationsAsRead } from './api';
 import { useNotification } from './NotificationContext';
 
-function Notifications() {
+function Notifications({ onMessageNotificationClick }) {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -45,6 +45,11 @@ function Notifications() {
         console.error('Error marking notification as read:', err);
       }
     }
+
+    // Handle message notifications by opening chat
+    if (notification.type === 'message' && onMessageNotificationClick) {
+      onMessageNotificationClick(notification.sender);
+    }
   };
 
   const handleMarkAllRead = async () => {
@@ -74,6 +79,7 @@ function Notifications() {
       case 'like': return '❤️';
       case 'follow': return '👤';
       case 'repost': return '🔁';
+      case 'message': return '💬';
       default: return '📢';
     }
   };
@@ -83,6 +89,7 @@ function Notifications() {
       case 'like': return 'liked your post';
       case 'follow': return 'started following you';
       case 'repost': return 'reposted your post';
+      case 'message': return 'sent you a message';
       default: return 'interacted with your content';
     }
   };

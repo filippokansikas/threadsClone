@@ -13,6 +13,8 @@ function Profile({ onPostCreated, profileRefresh }) {
   const [dropdownOpen, setDropdownOpen] = useState(null);
   const [activeTab, setActiveTab] = useState('posts'); // 'posts' or 'reposts'
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
 
   // Debug: Log when component mounts/unmounts
   useEffect(() => {
@@ -27,6 +29,35 @@ function Profile({ onPostCreated, profileRefresh }) {
       setUser(JSON.parse(storedUser));
     }
   }, []);
+
+  const fetchFollowerCounts = useCallback(async () => {
+    if (!user) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      // Fetch followers count
+      const followersResponse = await fetch('/api/auth/followers', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (followersResponse.ok) {
+        const followers = await followersResponse.json();
+        setFollowerCount(followers.length);
+      }
+
+      // Fetch following count
+      const followingResponse = await fetch('/api/auth/following', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (followingResponse.ok) {
+        const following = await followingResponse.json();
+        setFollowingCount(following.length);
+      }
+    } catch (error) {
+      console.error('Error fetching follower counts:', error);
+    }
+  }, [user]);
 
   const fetchPosts = useCallback(async () => {
     console.log('Profile: fetchPosts called, profileRefresh:', profileRefresh);
@@ -66,16 +97,18 @@ function Profile({ onPostCreated, profileRefresh }) {
     if (user && profileRefresh) {
       console.log('Profile: profileRefresh changed, forcing re-fetch:', profileRefresh);
       fetchPosts();
+      fetchFollowerCounts();
     }
-  }, [profileRefresh, user, fetchPosts]);
+  }, [profileRefresh, user, fetchPosts, fetchFollowerCounts]);
 
   // Initial fetch when user is loaded
   useEffect(() => {
     if (user) {
       console.log('Profile: Initial fetch for user:', user.id);
       fetchPosts();
+      fetchFollowerCounts();
     }
-  }, [user, fetchPosts]);
+  }, [user, fetchPosts, fetchFollowerCounts]);
 
   // Handler to refresh posts after a new post is created
   const handlePostCreated = () => {
@@ -149,6 +182,19 @@ function Profile({ onPostCreated, profileRefresh }) {
         <img src={user.profilePicture || 'https://i.pravatar.cc/100'} alt="avatar" className="w-24 h-24 rounded-full object-cover border-4 border-neutral-800 mb-4" />
         <h1 className="text-2xl font-bold text-white mb-1">@{user.username}</h1>
         <p className="text-neutral-400 text-center mb-4">{user.bio}</p>
+        
+        {/* Follower/Following Counts */}
+        <div className="flex gap-8 mb-4">
+          <div className="text-center">
+            <div className="text-white font-semibold text-lg">{followerCount}</div>
+            <div className="text-neutral-400 text-sm">Followers</div>
+          </div>
+          <div className="text-center">
+            <div className="text-white font-semibold text-lg">{followingCount}</div>
+            <div className="text-neutral-400 text-sm">Following</div>
+          </div>
+        </div>
+        
         <div className="w-full border-b border-neutral-800 mb-6"></div>
       </div>
       <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} user={user} onUpdate={handleUserUpdate} />

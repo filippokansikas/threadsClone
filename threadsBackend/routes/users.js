@@ -9,6 +9,7 @@ const auth = require('../middleware/auth');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 const { Op } = require('sequelize');
+const Notification = require('../models/Notification');
 
 const router = express.Router();
 
@@ -205,6 +206,20 @@ router.put('/conversations/:conversationId/read', auth, async (req, res) => {
     
     // Update conversation's updatedAt to mark as read
     await conversation.update({ updatedAt: new Date() });
+    
+    // Mark all message notifications from the other user as read
+    const otherUserId = conversation.user1Id === userId ? conversation.user2Id : conversation.user1Id;
+    await Notification.update(
+      { read: true },
+      { 
+        where: { 
+          recipientId: userId,
+          senderId: otherUserId,
+          type: 'message',
+          read: false
+        }
+      }
+    );
     
     res.json({ message: 'Messages marked as read' });
   } catch (err) {

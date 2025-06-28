@@ -81,7 +81,38 @@ io.on('connection', (socket) => {
     const fullMessage = await Message.findByPk(message.id, {
       include: [{ model: User, attributes: ['id', 'username', 'profilePicture'] }]
     });
+    
+    // Get conversation details to find the recipient
+    const conversation = await Conversation.findByPk(conversationId, {
+      include: [
+        { model: User, as: 'user1', attributes: ['id', 'username', 'profilePicture'] },
+        { model: User, as: 'user2', attributes: ['id', 'username', 'profilePicture'] }
+      ]
+    });
+    
+    // Determine the recipient (the other user in the conversation)
+    const recipientId = conversation.user1Id === senderId ? conversation.user2Id : conversation.user1Id;
+    
+    // Create notification for the recipient
+    const Notification = require('./models/Notification');
+    await Notification.create({
+      type: 'message',
+      recipientId: recipientId,
+      senderId: senderId,
+      content: `@${fullMessage.User.username} sent you a message`,
+      read: false
+    });
+    
+    // Emit the message to all users in the conversation
     io.to(`conversation_${conversationId}`).emit('receive_message', fullMessage);
+    
+    // Emit notification to the recipient
+    io.emit('new_notification', {
+      type: 'message',
+      recipientId: recipientId,
+      senderId: senderId,
+      content: `@${fullMessage.User.username} sent you a message`
+    });
   });
 
   socket.on('disconnect', () => {
