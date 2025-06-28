@@ -1,31 +1,36 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const sequelize = require('./models/sequelize');
 
 const app = express();
-const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Placeholder route
-app.get('/', (req, res) => {
-  res.send('ThreadsClone backend is running');
-});
+// Import associations to ensure all model relationships are set up
+require('./models/associations');
 
+// Routes
 const authRoutes = require('./routes/auth');
 const postRoutes = require('./routes/posts');
+const { router: notificationRoutes } = require('./routes/notifications');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/posts', postRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 (async () => {
   try {
+    const sequelize = require('./models/sequelize');
     await sequelize.sync();
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  } catch (err) {
-    console.error('Failed to sync database:', err);
+    console.log('Database synced');
+  } catch (error) {
+    console.error('Database sync error:', error);
   }
-})(); 
+})();
+
+const PORT = process.env.PORT || 5001;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+}); 

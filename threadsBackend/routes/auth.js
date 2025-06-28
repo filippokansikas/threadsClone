@@ -3,8 +3,22 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { Op } = require('sequelize');
 const User = require('../models/User');
+const { createNotification } = require('./notifications');
 
 const router = express.Router();
+
+// Middleware to verify JWT
+function auth(req, res, next) {
+  const token = req.header('Authorization')?.replace('Bearer ', '');
+  if (!token) return res.status(401).json({ message: 'No token, authorization denied' });
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = decoded;
+    next();
+  } catch (err) {
+    res.status(401).json({ message: 'Token is not valid' });
+  }
+}
 
 // Register
 router.post('/register', async (req, res) => {
@@ -18,7 +32,8 @@ router.post('/register', async (req, res) => {
     if (existingUser) return res.status(400).json({ message: 'User already exists' });
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await User.create({ username, email, password: hashedPassword, profilePicture, bio });
-    res.status(201).json({ message: 'User registered successfully' });
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET);
+    res.status(201).json({ token, user: { id: user.id, username: user.username, email: user.email } });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -59,16 +74,24 @@ router.post('/login', async (req, res) => {
 });
 
 // Follow a user
-router.post('/follow/:id', async (req, res) => {
+router.post('/follow/:id', auth, async (req, res) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    if (!token) return res.status(401).json({ message: 'No token, authorization denied' });
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findByPk(decoded.id);
-    const toFollow = await User.findByPk(req.params.id);
-    if (!user || !toFollow) return res.status(404).json({ message: 'User not found' });
-    await user.addFollowing(toFollow);
-    res.json({ message: 'Followed successfully' });
+    const userToFollow = await User.findByPk(req.params.id);
+    if (!userToFollow) return res.status(404).json({ message: 'User not found' });
+    if (userToFollow.id === req.user.id) return res.status(400).json({ message: 'Cannot follow yourself' });
+    
+    const currentUser = await User.findByPk(req.user.id);
+    const isFollowing = await currentUser.hasFollowing(userToFollow);
+    
+    if (isFollowing) {
+      await currentUser.removeFollowing(userToFollow);
+    } else {
+      await currentUser.addFollowing(userToFollow);
+      // Create notification for follow
+      await createNotification(userToFollow.id, req.user.id, 'follow');
+    }
+    
+    res.json({ message: isFollowing ? 'Unfollowed' : 'Followed' });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }
@@ -91,12 +114,9 @@ router.post('/unfollow/:id', async (req, res) => {
 });
 
 // Get following list
-router.get('/following', async (req, res) => {
+router.get('/following', auth, async (req, res) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
-    if (!token) return res.status(401).json({ message: 'No token, authorization denied' });
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findByPk(decoded.id, { include: [{ model: User, as: 'Following' }] });
+    const user = await User.findByPk(req.user.id, { include: [{ model: User, as: 'Following' }] });
     res.json(user.Following);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });

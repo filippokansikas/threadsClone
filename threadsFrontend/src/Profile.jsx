@@ -25,10 +25,10 @@ function Profile({ onPostCreated }) {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
       const data = await res.json();
-      console.log('Fetched posts:', data);
       if (res.ok && user) {
         // Only show posts created by the logged-in user (using post.User.id)
-        setPosts(data.filter(post => post.User && post.User.id === user.id));
+        const userPosts = data.filter(post => post.User && post.User.id === user.id);
+        setPosts(userPosts);
       } else {
         setPosts([]);
       }
@@ -108,20 +108,49 @@ function Profile({ onPostCreated }) {
         ) : posts.length === 0 ? (
           <div className="text-neutral-500 text-center mt-16">You haven't posted any threads yet.</div>
         ) : (
-          posts.map((post, idx) => (
-            <PostCard
-              key={post.id || idx}
-              avatar={post.User?.profilePicture || 'https://i.pravatar.cc/100'}
-              username={post.User?.username}
-              time={new Date(post.createdAt).toLocaleString()}
-              content={post.content}
-              showDropdown={user && post.User && post.User.id === user.id}
-              onDropdownClick={() => handleDropdown(post.id)}
-              dropdownOpen={dropdownOpen === post.id}
-              onDelete={() => handleDelete(post.id)}
-              deleting={deleting === post.id}
-            />
-          ))
+          posts.map((post, idx) => {
+            const likes = Array.isArray(post.likes) ? post.likes.map(String) : [];
+            const liked = user && likes.includes(String(user.id));
+            const likesCount = likes.length;
+            
+            const handleLike = async (e) => {
+              if (e && e.preventDefault) e.preventDefault();
+              const token = localStorage.getItem('token');
+              if (!token) return;
+              const res = await fetch(`/api/posts/${post.id}/like`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+              });
+              if (res.ok) {
+                const data = await res.json();
+                setPosts(posts => {
+                  const newPosts = [...posts];
+                  newPosts[idx] = { ...newPosts[idx], likes: data.post.likes };
+                  return newPosts;
+                });
+              }
+            };
+
+            return (
+              <PostCard
+                key={post.id || idx}
+                avatar={post.User?.profilePicture || 'https://i.pravatar.cc/100'}
+                username={post.User?.username}
+                time={new Date(post.createdAt).toLocaleString()}
+                content={post.content}
+                showDropdown={user && post.User && post.User.id === user.id}
+                onDropdownClick={() => handleDropdown(post.id)}
+                dropdownOpen={dropdownOpen === post.id}
+                onDelete={() => handleDelete(post.id)}
+                deleting={deleting === post.id}
+                likesCount={likesCount}
+                liked={liked}
+                onLike={handleLike}
+                postId={post.id}
+                user={user}
+              />
+            );
+          })
         )}
       </div>
     </div>

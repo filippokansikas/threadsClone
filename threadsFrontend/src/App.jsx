@@ -10,6 +10,7 @@ import CommentModal from './CommentModal'
 import Profile from './Profile'
 import Login from './Login'
 import Register from './Register'
+import { NotificationProvider } from './NotificationContext'
 
 function Feed({ onCommentClick }) {
   const [posts, setPosts] = useState([]);
@@ -149,6 +150,26 @@ function Feed({ onCommentClick }) {
         posts.map((post, idx) => {
           const isFollowing = post.User && following.includes(post.User.id);
           const isOwn = user && post.User && post.User.id === user.id;
+          const likes = Array.isArray(post.likes) ? post.likes.map(String) : [];
+          const liked = user && likes.includes(String(user.id));
+          const likesCount = likes.length;
+          const handleLike = async (e) => {
+            if (e && e.preventDefault) e.preventDefault();
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            const res = await fetch(`/api/posts/${post.id}/like`, {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setPosts(posts => {
+                const newPosts = [...posts];
+                newPosts[idx] = { ...newPosts[idx], likes: data.post.likes };
+                return newPosts;
+              });
+            }
+          };
           return (
             <PostCard
               key={post.id || idx}
@@ -167,6 +188,11 @@ function Feed({ onCommentClick }) {
               onFollow={() => handleFollow(post.User.id)}
               onUnfollow={() => handleUnfollow(post.User.id)}
               isOwn={isOwn}
+              likesCount={likesCount}
+              liked={liked}
+              onLike={handleLike}
+              postId={post.id}
+              user={user}
             />
           );
         })
@@ -179,14 +205,16 @@ function App() {
   const [commentModal, setCommentModal] = useState({ open: false, post: null })
   const [profileRefresh, setProfileRefresh] = useState(0);
   return (
-    <BrowserRouter>
-      <RouterApp
-        commentModal={commentModal}
-        setCommentModal={setCommentModal}
-        profileRefresh={profileRefresh}
-        setProfileRefresh={setProfileRefresh}
-      />
-    </BrowserRouter>
+    <NotificationProvider>
+      <BrowserRouter>
+        <RouterApp
+          commentModal={commentModal}
+          setCommentModal={setCommentModal}
+          profileRefresh={profileRefresh}
+          setProfileRefresh={setProfileRefresh}
+        />
+      </BrowserRouter>
+    </NotificationProvider>
   )
 }
 
