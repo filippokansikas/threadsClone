@@ -64,6 +64,13 @@ router.get('/', async (req, res) => {
       order: [['createdAt', 'DESC']],
     });
 
+    // Add commentCount to each originalPost in reposts
+    for (const repost of reposts) {
+      if (repost.originalPost) {
+        repost.originalPost.dataValues.commentCount = await Comment.count({ where: { postId: repost.originalPost.id } });
+      }
+    }
+
     // Combine posts and reposts, marking reposts with a type
     const feedItems = [
       ...posts.map(post => ({ type: 'post', data: post })),
@@ -123,6 +130,13 @@ router.get('/following', auth, async (req, res) => {
       },
       order: [['createdAt', 'DESC']],
     });
+
+    // Add commentCount to each originalPost in reposts
+    for (const repost of reposts) {
+      if (repost.originalPost) {
+        repost.originalPost.dataValues.commentCount = await Comment.count({ where: { postId: repost.originalPost.id } });
+      }
+    }
 
     // Combine posts and reposts, marking reposts with a type
     const feedItems = [
