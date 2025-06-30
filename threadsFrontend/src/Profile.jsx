@@ -1,10 +1,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import PostCard from './PostCard';
 import RepostCard from './RepostCard';
 import SettingsModal from './SettingsModal';
 
 function Profile({ onPostCreated, profileRefresh }) {
+  const { username } = useParams();
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
+  const [profileUser, setProfileUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [reposts, setReposts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -15,30 +19,133 @@ function Profile({ onPostCreated, profileRefresh }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [followerCount, setFollowerCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
+  const [isOwnProfile, setIsOwnProfile] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followLoading, setFollowLoading] = useState(false);
 
   // Debug: Log when component mounts/unmounts
   useEffect(() => {
-    console.log('Profile: Component mounted with profileRefresh:', profileRefresh);
+    console.log('Profile: Component mounted with profileRefresh:', profileRefresh, 'username:', username);
     return () => console.log('Profile: Component unmounting');
-  }, [profileRefresh]);
+  }, [profileRefresh, username]);
 
   useEffect(() => {
     // Get user info from localStorage
     const storedUser = localStorage.getItem('user');
     if (storedUser) {
-      setUser(JSON.parse(storedUser));
+      const currentUser = JSON.parse(storedUser);
+      setUser(currentUser);
+      
+      // Check if this is the user's own profile
+      if (!username || username === currentUser.username) {
+        setProfileUser(currentUser);
+        setIsOwnProfile(true);
+      } else {
+        // Fetch other user's profile
+        fetchUserProfile(username);
+      }
     }
-  }, []);
+  }, [username]);
+
+  // Always check follow status when profileUser or user changes
+  useEffect(() => {
+    if (profileUser && user && profileUser.id !== user.id) {
+      checkFollowStatus(profileUser.id);
+    }
+  }, [profileUser, user]);
+
+  const fetchUserProfile = async (targetUsername) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/users/${targetUsername}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      });
+      
+      if (res.ok) {
+        const userData = await res.json();
+        setProfileUser(userData);
+        setIsOwnProfile(false);
+        
+        // Check if current user is following this user
+        if (user && user.id !== userData.id) {
+          checkFollowStatus(userData.id);
+        }
+      } else if (res.status === 404) {
+        navigate('/profile'); // Redirect to own profile if user not found
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      navigate('/profile');
+    }
+  };
+
+  const checkFollowStatus = async (targetUserId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch('/api/auth/following', {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      
+      if (res.ok) {
+        const following = await res.json();
+        setIsFollowing(following.some(u => u.id === targetUserId));
+      }
+    } catch (error) {
+      console.error('Error checking follow status:', error);
+    }
+  };
+
+  const handleFollow = async () => {
+    if (!profileUser || !user) return;
+    setFollowLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/auth/follow/${profileUser.id}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setIsFollowing(true);
+        setFollowerCount(prev => prev + 1);
+        await fetchFollowerCounts(); // Refresh counts
+        checkFollowStatus(profileUser.id); // Ensure status is up to date
+      }
+    } catch (error) {
+      console.error('Error following user:', error);
+    }
+    setFollowLoading(false);
+  };
+
+  const handleUnfollow = async () => {
+    if (!profileUser || !user) return;
+    setFollowLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/auth/unfollow/${profileUser.id}`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+      if (res.ok) {
+        setIsFollowing(false);
+        setFollowerCount(prev => Math.max(0, prev - 1));
+        await fetchFollowerCounts(); // Refresh counts
+        checkFollowStatus(profileUser.id); // Ensure status is up to date
+      }
+    } catch (error) {
+      console.error('Error unfollowing user:', error);
+    }
+    setFollowLoading(false);
+  };
 
   const fetchFollowerCounts = useCallback(async () => {
-    if (!user) return;
+    if (!profileUser) return;
     
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
 
       // Fetch followers count
-      const followersResponse = await fetch('/api/auth/followers', {
+      const followersResponse = await fetch(`/api/users/${profileUser.username}/followers`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (followersResponse.ok) {
@@ -47,7 +154,7 @@ function Profile({ onPostCreated, profileRefresh }) {
       }
 
       // Fetch following count
-      const followingResponse = await fetch('/api/auth/following', {
+      const followingResponse = await fetch(`/api/users/${profileUser.username}/following`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (followingResponse.ok) {
@@ -57,10 +164,10 @@ function Profile({ onPostCreated, profileRefresh }) {
     } catch (error) {
       console.error('Error fetching follower counts:', error);
     }
-  }, [user]);
+  }, [profileUser]);
 
   const fetchPosts = useCallback(async () => {
-    console.log('Profile: fetchPosts called, profileRefresh:', profileRefresh);
+    console.log('Profile: fetchPosts called, profileRefresh:', profileRefresh, 'profileUser:', profileUser);
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
@@ -68,16 +175,16 @@ function Profile({ onPostCreated, profileRefresh }) {
         headers: token ? { 'Authorization': `Bearer ${token}` } : {},
       });
       const data = await res.json();
-      if (res.ok && user) {
-        // Filter posts created by the logged-in user from the new API format
+      if (res.ok && profileUser) {
+        // Filter posts created by the profile user from the new API format
         const userPosts = data
-          .filter(item => item.type === 'post' && item.data.User && Number(item.data.User.id) === Number(user.id))
+          .filter(item => item.type === 'post' && item.data.User && Number(item.data.User.id) === Number(profileUser.id))
           .map(item => item.data);
         setPosts(userPosts);
         
-        // Filter reposts by the logged-in user
+        // Filter reposts by the profile user
         const userReposts = data
-          .filter(item => item.type === 'repost' && item.data.reposter && Number(item.data.reposter.id) === Number(user.id));
+          .filter(item => item.type === 'repost' && item.data.reposter && Number(item.data.reposter.id) === Number(profileUser.id));
         console.log('Profile: Found user reposts:', userReposts.length);
         setReposts(userReposts);
       } else {
@@ -90,25 +197,25 @@ function Profile({ onPostCreated, profileRefresh }) {
       setReposts([]);
     }
     setLoading(false);
-  }, [user, profileRefresh]);
+  }, [profileUser, profileRefresh]);
 
   // Force re-fetch whenever profileRefresh changes
   useEffect(() => {
-    if (user && profileRefresh) {
+    if (profileUser && profileRefresh) {
       console.log('Profile: profileRefresh changed, forcing re-fetch:', profileRefresh);
       fetchPosts();
       fetchFollowerCounts();
     }
-  }, [profileRefresh, user, fetchPosts, fetchFollowerCounts]);
+  }, [profileRefresh, profileUser, fetchPosts, fetchFollowerCounts]);
 
-  // Initial fetch when user is loaded
+  // Initial fetch when profileUser is loaded
   useEffect(() => {
-    if (user) {
-      console.log('Profile: Initial fetch for user:', user.id);
+    if (profileUser) {
+      console.log('Profile: Initial fetch for user:', profileUser.id);
       fetchPosts();
       fetchFollowerCounts();
     }
-  }, [user, fetchPosts, fetchFollowerCounts]);
+  }, [profileUser, fetchPosts, fetchFollowerCounts]);
 
   // Handler to refresh posts after a new post is created
   const handlePostCreated = () => {
@@ -164,24 +271,31 @@ function Profile({ onPostCreated, profileRefresh }) {
     return <div className="text-white text-center mt-16">You must be logged in to view your profile.</div>;
   }
 
+  if (!profileUser) {
+    return <div className="text-white text-center mt-16">Loading profile...</div>;
+  }
+
   return (
     <div className="min-h-screen bg-black flex flex-col items-center pt-0 px-0">
       {/* Profile Header */}
       <div className="w-full max-w-xl flex flex-col items-center py-10 relative">
-        {/* Settings Button */}
-        <button
-          className="absolute top-4 right-4 p-2 rounded-full bg-neutral-800 hover:bg-neutral-700 text-white"
-          onClick={() => setSettingsOpen(true)}
-          aria-label="Edit Profile Settings"
-        >
-          {/* Standard Gear Icon */}
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.25 2.25c.966 0 1.75.784 1.75 1.75v.5a7.001 7.001 0 0 1 2.45.7l.35-.35a1.75 1.75 0 1 1 2.475 2.475l-.35.35a7.001 7.001 0 0 1 .7 2.45h.5c.966 0 1.75.784 1.75 1.75s-.784 1.75-1.75 1.75h-.5a7.001 7.001 0 0 1-.7 2.45l.35.35a1.75 1.75 0 1 1-2.475 2.475l-.35-.35a7.001 7.001 0 0 1-2.45.7v.5c0 .966-.784 1.75-1.75 1.75s-1.75-.784-1.75-1.75v-.5a7.001 7.001 0 0 1-2.45-.7l-.35.35a1.75 1.75 0 1 1-2.475-2.475l.35-.35a7.001 7.001 0 0 1-.7-2.45h-.5c-.966 0-1.75-.784-1.75-1.75s.784-1.75 1.75-1.75h.5a7.001 7.001 0 0 1 .7-2.45l-.35-.35A1.75 1.75 0 1 1 6.8 4.65l.35.35a7.001 7.001 0 0 1 2.45-.7v-.5c0-.966.784-1.75 1.75-1.75zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
-          </svg>
-        </button>
-        <img src={user.profilePicture || 'https://i.pravatar.cc/100'} alt="avatar" className="w-24 h-24 rounded-full object-cover border-4 border-neutral-800 mb-4" />
-        <h1 className="text-2xl font-bold text-white mb-1">@{user.username}</h1>
-        <p className="text-neutral-400 text-center mb-4">{user.bio}</p>
+        {/* Settings Button - only show for own profile */}
+        {isOwnProfile && (
+          <button
+            className="absolute top-4 right-4 p-2 rounded-full bg-neutral-800 hover:bg-neutral-700 text-white"
+            onClick={() => setSettingsOpen(true)}
+            aria-label="Edit Profile Settings"
+          >
+            {/* Standard Gear Icon */}
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.25 2.25c.966 0 1.75.784 1.75 1.75v.5a7.001 7.001 0 0 1 2.45.7l.35-.35a1.75 1.75 0 1 1 2.475 2.475l-.35.35a7.001 7.001 0 0 1 .7 2.45h.5c.966 0 1.75.784 1.75 1.75s-.784 1.75-1.75 1.75h-.5a7.001 7.001 0 0 1-.7 2.45l.35.35a1.75 1.75 0 1 1-2.475 2.475l-.35-.35a7.001 7.001 0 0 1-2.45.7v.5c0 .966-.784 1.75-1.75 1.75s-1.75-.784-1.75-1.75v-.5a7.001 7.001 0 0 1-2.45-.7l-.35.35a1.75 1.75 0 1 1-2.475-2.475l.35-.35a7.001 7.001 0 0 1-.7-2.45h-.5c-.966 0-1.75-.784-1.75-1.75s.784-1.75 1.75-1.75h.5a7.001 7.001 0 0 1 .7-2.45l-.35-.35A1.75 1.75 0 1 1 6.8 4.65l.35.35a7.001 7.001 0 0 1 2.45-.7v-.5c0-.966.784-1.75 1.75-1.75zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" />
+            </svg>
+          </button>
+        )}
+        
+        <img src={profileUser.profilePicture || 'https://i.pravatar.cc/100'} alt="avatar" className="w-24 h-24 rounded-full object-cover border-4 border-neutral-800 mb-4" />
+        <h1 className="text-2xl font-bold text-white mb-1">@{profileUser.username}</h1>
+        <p className="text-neutral-400 text-center mb-4">{profileUser.bio}</p>
         
         {/* Follower/Following Counts */}
         <div className="flex gap-8 mb-4">
@@ -194,6 +308,29 @@ function Profile({ onPostCreated, profileRefresh }) {
             <div className="text-neutral-400 text-sm">Following</div>
           </div>
         </div>
+        
+        {/* Follow/Unfollow Button - only show for other users */}
+        {!isOwnProfile && user && (
+          <div className="mb-4">
+            {isFollowing ? (
+              <button
+                onClick={handleUnfollow}
+                className="px-6 py-2 bg-neutral-800 text-white rounded-full hover:bg-neutral-700 transition-colors disabled:opacity-50"
+                disabled={followLoading}
+              >
+                {followLoading ? 'Unfollowing...' : 'Unfollow'}
+              </button>
+            ) : (
+              <button
+                onClick={handleFollow}
+                className="px-6 py-2 bg-white text-black rounded-full hover:bg-gray-200 transition-colors disabled:opacity-50"
+                disabled={followLoading}
+              >
+                {followLoading ? 'Following...' : 'Follow'}
+              </button>
+            )}
+          </div>
+        )}
         
         <div className="w-full border-b border-neutral-800 mb-6"></div>
       </div>
@@ -221,10 +358,12 @@ function Profile({ onPostCreated, profileRefresh }) {
       <div className="w-full max-w-xl px-2 sm:px-0">
         {error && <div className="text-red-400 text-center mb-2">{error}</div>}
         {loading ? (
-          <div className="text-neutral-500 text-center mt-16">Loading your {activeTab}...</div>
+          <div className="text-neutral-500 text-center mt-16">Loading {isOwnProfile ? 'your' : `${profileUser.username}'s`} {activeTab}...</div>
         ) : activeTab === 'posts' ? (
           posts.length === 0 ? (
-            <div className="text-neutral-500 text-center mt-16">You haven't posted any threads yet.</div>
+            <div className="text-neutral-500 text-center mt-16">
+              {isOwnProfile ? "You haven't posted any threads yet." : `${profileUser.username} hasn't posted any threads yet.`}
+            </div>
           ) : (
             posts.map((post, idx) => {
               const likes = Array.isArray(post.likes) ? post.likes.map(String) : [];
@@ -277,7 +416,9 @@ function Profile({ onPostCreated, profileRefresh }) {
         ) : (
           // Reposts tab
           reposts.length === 0 ? (
-            <div className="text-neutral-500 text-center mt-16">You haven't reposted any threads yet.</div>
+            <div className="text-neutral-500 text-center mt-16">
+              {isOwnProfile ? "You haven't reposted any threads yet." : `${profileUser.username} hasn't reposted any threads yet.`}
+            </div>
           ) : (
             reposts.map((item, idx) => {
               const repost = item.data;

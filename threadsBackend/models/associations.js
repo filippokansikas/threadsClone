@@ -4,6 +4,7 @@ const Repost = require('./Repost');
 const Notification = require('./Notification');
 const Conversation = require('./Conversation');
 const Message = require('./Message');
+const Comment = require('./Comment');
 const sequelize = require('./sequelize');
 
 // Follows join table for many-to-many self-association
@@ -45,5 +46,6 @@ module.exports = {
   Repost,
   Notification,
   Conversation,
-  Message
+  Message,
+  Comment
 }; 

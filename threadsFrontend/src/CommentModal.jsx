@@ -1,37 +1,66 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import PostCard from './PostCard';
 
-const sampleComments = [
-  {
-    avatar: 'https://randomuser.me/api/portraits/men/45.jpg',
-    username: 'commenter1',
-    time: '1m',
-    content: 'Welcome to Threads! 🎉',
-  },
-  {
-    avatar: 'https://randomuser.me/api/portraits/women/55.jpg',
-    username: 'commenter2',
-    time: '3m',
-    content: 'I love this post!'
-  },
-  {
-    avatar: 'https://randomuser.me/api/portraits/men/66.jpg',
-    username: 'commenter3',
-    time: '10m',
-    content: 'Great thoughts!'
-  },
-];
-
-function CommentModal({ open, onClose, post, comments = sampleComments, onAddComment }) {
+function CommentModal({ open, onClose, post }) {
+  const [comments, setComments] = useState([]);
   const [value, setValue] = useState('');
-  if (!open) return null;
+  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState('');
 
-  const handleSubmit = () => {
-    if (value.trim()) {
-      onAddComment?.(value);
-      setValue('');
+  useEffect(() => {
+    if (open && post && post.id) {
+      fetchComments();
+    } else {
+      setComments([]);
     }
+    // eslint-disable-next-line
+  }, [open, post]);
+
+  const fetchComments = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/posts/${post.id}/comments`);
+      if (res.ok) {
+        const data = await res.json();
+        setComments(data);
+      } else {
+        setError('Failed to load comments');
+      }
+    } catch (err) {
+      setError('Failed to load comments');
+    }
+    setLoading(false);
   };
+
+  const handleSubmit = async () => {
+    if (!value.trim()) return;
+    setSubmitting(true);
+    setError('');
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/posts/${post.id}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ content: value.trim() })
+      });
+      if (res.ok) {
+        setValue('');
+        await fetchComments();
+      } else {
+        setError('Failed to add comment');
+      }
+    } catch (err) {
+      setError('Failed to add comment');
+    }
+    setSubmitting(false);
+  };
+
+  if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm">
@@ -50,21 +79,42 @@ function CommentModal({ open, onClose, post, comments = sampleComments, onAddCom
         {/* Post at the top */}
         {post && (
           <div className="px-6 pt-6 pb-2">
-            <PostCard {...post} />
+            <PostCard
+              avatar={post.User?.profilePicture || 'https://i.pravatar.cc/100'}
+              username={post.User?.username}
+              time={new Date(post.createdAt).toLocaleString()}
+              content={post.content}
+              postId={post.id}
+              user={post.User}
+              post={post}
+              // Disable actions in modal header
+              showDropdown={false}
+              showFollowButton={false}
+              isOwn={false}
+              likesCount={Array.isArray(post.likes) ? post.likes.length : 0}
+              liked={false}
+              onLike={() => {}}
+              onCommentClick={() => {}}
+              onRepostUpdate={() => {}}
+            />
           </div>
         )}
         {/* Comments below, left-aligned to modal */}
         <div className="flex-1 overflow-y-auto px-6 pb-4 pt-2">
-          {comments.length === 0 ? (
+          {loading ? (
+            <div className="text-neutral-500 text-center mt-8">Loading comments...</div>
+          ) : error ? (
+            <div className="text-red-400 text-center mt-8">{error}</div>
+          ) : comments.length === 0 ? (
             <div className="text-neutral-500 text-center mt-8">No comments yet.</div>
           ) : (
             comments.map((comment, idx) => (
-              <div key={idx} className="flex gap-3 mb-4 items-start bg-neutral-800 rounded-xl p-3 border border-neutral-700 shadow-sm">
-                <img src={comment.avatar} alt="avatar" className="w-8 h-8 rounded-full object-cover mt-1" />
+              <div key={comment.id || idx} className="flex gap-3 mb-4 items-start bg-neutral-800 rounded-xl p-3 border border-neutral-700 shadow-sm">
+                <img src={comment.User?.profilePicture || 'https://i.pravatar.cc/100'} alt="avatar" className="w-8 h-8 rounded-full object-cover mt-1" />
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="font-semibold text-white text-sm">{comment.username}</span>
-                    <span className="text-xs text-neutral-400">· {comment.time}</span>
+                    <span className="font-semibold text-white text-sm">{comment.User?.username || 'Unknown'}</span>
+                    <span className="text-xs text-neutral-400">· {new Date(comment.createdAt).toLocaleString()}</span>
                   </div>
                   <div className="text-neutral-200 text-sm text-left">{comment.content}</div>
                 </div>
@@ -81,13 +131,14 @@ function CommentModal({ open, onClose, post, comments = sampleComments, onAddCom
             onChange={e => setValue(e.target.value)}
             rows={2}
             maxLength={300}
+            disabled={submitting}
           />
           <button
             className="px-5 py-2 rounded-full bg-white text-neutral-900 font-semibold hover:bg-neutral-200 transition disabled:opacity-50"
             onClick={handleSubmit}
-            disabled={!value.trim()}
+            disabled={!value.trim() || submitting}
           >
-            Comment
+            {submitting ? 'Posting...' : 'Comment'}
           </button>
         </div>
       </div>

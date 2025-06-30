@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { repostPost, checkRepostStatus, getRepostCount } from './api'
 import StartChatModal from './StartChatModal'
 
@@ -24,8 +25,10 @@ function PostCard({
   postId,
   user,
   onRepostUpdate,
-  post
+  post,
+  commentCount = 0
 }) {
+  const navigate = useNavigate();
   const [reposted, setReposted] = useState(false);
   const [repostCount, setRepostCount] = useState(0);
   const [reposting, setReposting] = useState(false);
@@ -44,6 +47,12 @@ function PostCard({
         .catch(err => console.error('Error getting repost count:', err));
     }
   }, [postId, user]);
+
+  const handleUsernameClick = () => {
+    if (post && post.User && post.User.username) {
+      navigate(`/profile/${post.User.username}`);
+    }
+  };
 
   const handleRepost = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -104,7 +113,12 @@ function PostCard({
         {/* Post Content */}
         <div className="flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <span className="font-semibold text-white">{username}</span>
+            <span 
+              className="font-semibold text-white cursor-pointer hover:text-blue-400 transition-colors" 
+              onClick={handleUsernameClick}
+            >
+              {username}
+            </span>
             <span className="text-xs text-neutral-400">· {time}</span>
           </div>
           <div className="text-white mb-3">
@@ -120,7 +134,10 @@ function PostCard({
             >
               ❤️ <span className="ml-1 text-base">{likesCount || 0}</span>
             </button>
-            <button type="button" className="hover:text-blue-400 transition" title="Reply" onClick={onCommentClick}>💬</button>
+            <button type="button" className="hover:text-blue-400 transition flex items-center" title="Reply" onClick={onCommentClick}>
+              💬
+              <span className="ml-1 text-base">{commentCount}</span>
+            </button>
             <button 
               type="button" 
               className={`hover:text-green-400 transition flex items-center ${reposted ? 'text-green-500' : ''} ${reposting ? 'opacity-50' : ''}`} 

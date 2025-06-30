@@ -20,6 +20,22 @@ function Navbar() {
     }
   }, []);
 
+  // Add a function to check unread messages and expose it for ChatModal
+  const checkUnreadMessages = async () => {
+    if (!user) return;
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const response = await fetch('/api/users/conversations/unread/count', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await response.json();
+      setHasUnreadMessages(data.unreadCount > 0);
+    } catch (error) {
+      console.error('Error checking unread messages:', error);
+    }
+  };
+
   useEffect(() => {
     const checkUnreadNotifications = async () => {
       if (!user) return;
@@ -33,24 +49,6 @@ function Navbar() {
         setNotificationIndicator(hasUnread);
       } catch (error) {
         console.error('Error checking notifications:', error);
-      }
-    };
-
-    const checkUnreadMessages = async () => {
-      if (!user) return;
-      
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) return;
-
-        const response = await fetch('/api/users/conversations/unread/count', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await response.json();
-        
-        setHasUnreadMessages(data.unreadCount > 0);
-      } catch (error) {
-        console.error('Error checking unread messages:', error);
       }
     };
 
@@ -97,7 +95,10 @@ function Navbar() {
           </Link>
           {/* Chat Button */}
           <button
-            onClick={() => setShowChatModal(true)}
+            onClick={() => {
+              setShowChatModal(true);
+              setHasUnreadMessages(false); // Clear unread chat indicator immediately
+            }}
             className="relative w-12 h-12 rounded-full bg-neutral-800 hover:bg-neutral-700 flex items-center justify-center text-white mb-4 transition-colors"
             title="Messages"
           >
@@ -122,7 +123,10 @@ function Navbar() {
       {/* ... existing modals ... */}
       <ChatModal 
         isOpen={showChatModal} 
-        onClose={() => setShowChatModal(false)} 
+        onClose={() => {
+          setShowChatModal(false);
+          checkUnreadMessages(); // Re-check unread messages when chat closes
+        }} 
         currentUser={user} 
       />
     </>

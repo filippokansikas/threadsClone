@@ -4,6 +4,7 @@ const User = require('../models/User');
 const Repost = require('../models/Repost');
 const jwt = require('jsonwebtoken');
 const { createNotification } = require('./notifications');
+const Comment = require('../models/Comment');
 
 const router = express.Router();
 
@@ -44,6 +45,11 @@ router.get('/', async (req, res) => {
       ],
       order: [['createdAt', 'DESC']],
     });
+
+    // Add commentCount to each post
+    for (const post of posts) {
+      post.dataValues.commentCount = await Comment.count({ where: { postId: post.id } });
+    }
 
     // Also get all reposts as separate entries
     const reposts = await Repost.findAll({
@@ -96,6 +102,11 @@ router.get('/following', auth, async (req, res) => {
       ],
       order: [['createdAt', 'DESC']],
     });
+
+    // Add commentCount to each post
+    for (const post of posts) {
+      post.dataValues.commentCount = await Comment.count({ where: { postId: post.id } });
+    }
 
     // Get reposts by followed users
     const reposts = await Repost.findAll({
@@ -239,6 +250,39 @@ router.delete('/:id', auth, async (req, res) => {
     }
     await post.destroy();
     res.json({ message: 'Post deleted successfully' });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get comments for a post
+router.get('/:id/comments', async (req, res) => {
+  try {
+    const comments = await Comment.findAll({
+      where: { postId: req.params.id },
+      include: [{ model: User, attributes: ['id', 'username', 'profilePicture'] }],
+      order: [['createdAt', 'ASC']]
+    });
+    res.json(comments);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Add a comment to a post
+router.post('/:id/comments', auth, async (req, res) => {
+  try {
+    const post = await Post.findByPk(req.params.id);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+    const comment = await Comment.create({
+      content: req.body.content,
+      userId: req.user.id,
+      postId: req.params.id
+    });
+    const fullComment = await Comment.findByPk(comment.id, {
+      include: [{ model: User, attributes: ['id', 'username', 'profilePicture'] }]
+    });
+    res.status(201).json(fullComment);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }

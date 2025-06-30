@@ -202,6 +202,7 @@ function Feed({ onCommentClick, setProfileRefresh }) {
                 user={user}
                 onRepostUpdate={() => setProfileRefresh(Date.now())}
                 post={post}
+                commentCount={post.commentCount || 0}
               />
             );
           } else if (item.type === 'repost') {
@@ -261,6 +262,7 @@ function Feed({ onCommentClick, setProfileRefresh }) {
                 user={user}
                 onRepostUpdate={() => setProfileRefresh(Date.now())}
                 post={originalPost}
+                commentCount={originalPost.commentCount || 0}
               />
             );
           }
@@ -280,28 +282,35 @@ function App() {
     console.log('App: profileRefresh changed to:', profileRefresh);
   }, [profileRefresh]);
   
+  // Debug: Log comment modal post
+  useEffect(() => {
+    if (commentModal.open) {
+      console.log('CommentModal opened for post:', commentModal.post);
+    }
+  }, [commentModal]);
+  
   return (
     <NotificationProvider>
       <BrowserRouter>
         <RouterApp
-          commentModal={commentModal}
           setCommentModal={setCommentModal}
           profileRefresh={profileRefresh}
           setProfileRefresh={setProfileRefresh}
         />
+        {/* Render CommentModal at top level for overlay */}
+        <CommentModal open={commentModal.open} onClose={() => setCommentModal({ open: false, post: null })} post={commentModal.post} />
       </BrowserRouter>
     </NotificationProvider>
   )
 }
 
-function RouterApp({ commentModal, setCommentModal, profileRefresh, setProfileRefresh }) {
+function RouterApp({ setCommentModal, profileRefresh, setProfileRefresh }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [showChatModal, setShowChatModal] = useState(false);
   const [chatTargetUser, setChatTargetUser] = useState(null);
 
-  const handleCommentClick = (post) => setCommentModal({ open: true, post })
-  const handleCommentModalClose = () => setCommentModal({ open: false, post: null })
+  const handleCommentClick = (post) => setCommentModal({ open: true, post });
 
   // Handle message notification click
   const handleMessageNotificationClick = (sender) => {
@@ -335,7 +344,6 @@ function RouterApp({ commentModal, setCommentModal, profileRefresh, setProfileRe
       {isSearchModal && (
         <SearchModal open={true} onClose={() => navigate(-1)} />
       )}
-      <CommentModal open={commentModal.open} onClose={handleCommentModalClose} post={commentModal.post} />
       <Routes>
         <Route path="/" element={<Feed onCommentClick={handleCommentClick} setProfileRefresh={setProfileRefresh} />} />
         <Route path="/notifications" element={<Notifications onMessageNotificationClick={handleMessageNotificationClick} />} />

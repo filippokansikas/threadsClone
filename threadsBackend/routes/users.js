@@ -268,4 +268,46 @@ router.get('/conversations/unread/count', auth, async (req, res) => {
   }
 });
 
+// Get a user's following by username
+router.get('/:username/following', async (req, res) => {
+  try {
+    const user = await User.findOne({
+      where: { username: req.params.username },
+      include: [{ model: User, as: 'Following' }]
+    });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user.Following);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get a user's followers by username
+router.get('/:username/followers', async (req, res) => {
+  try {
+    const user = await User.findOne({
+      where: { username: req.params.username },
+      include: [{ model: User, as: 'Followers' }]
+    });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user.Followers);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get a user by username (for profile viewing)
+router.get('/:username', async (req, res) => {
+  try {
+    const user = await User.findOne({
+      where: { username: req.params.username },
+      attributes: { exclude: ['password'] }
+    });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router; 
