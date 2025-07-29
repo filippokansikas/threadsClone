@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import PostCard from './PostCard';
 
-function SearchModal({ open, onClose, user }) {
+function SearchModal({ open, onClose, user = null }) {
   const [query, setQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
   const [results, setResults] = useState([]);
@@ -77,6 +77,8 @@ function SearchModal({ open, onClose, user }) {
                   user={user}
                   onRepostUpdate={() => {}}
                   repostCount={typeof post.repostCount === 'number' ? post.repostCount : 0}
+                  post={post}
+                  commentCount={post.commentCount || 0}
                 />
               ))
             )}

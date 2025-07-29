@@ -5,6 +5,7 @@ const Repost = require('../models/Repost');
 const jwt = require('jsonwebtoken');
 const { createNotification } = require('./notifications');
 const Comment = require('../models/Comment');
+const { Op } = require('sequelize');
 
 const router = express.Router();
 
@@ -28,6 +29,38 @@ router.post('/', auth, async (req, res) => {
     res.status(201).json(post);
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Search posts - must come before /:id routes
+router.get('/search', async (req, res) => {
+  try {
+    const { query } = req.query;
+    if (!query || query.trim() === '') {
+      return res.status(400).json({ message: 'Search query is required' });
+    }
+
+    const posts = await Post.findAll({
+      where: {
+        content: {
+          [Op.like]: `%${query.trim()}%`
+        }
+      },
+      include: [
+        { model: User, attributes: ['id', 'username', 'profilePicture', 'bio'] }
+      ],
+      order: [['createdAt', 'DESC']],
+    });
+
+    // Add commentCount to each post
+    for (const post of posts) {
+      post.dataValues.commentCount = await Comment.count({ where: { postId: post.id } });
+    }
+
+    res.json(posts);
+  } catch (err) {
+    console.error('Search posts error:', err);
+    res.status(500).json({ message: 'Server error', details: err.message });
   }
 });
 

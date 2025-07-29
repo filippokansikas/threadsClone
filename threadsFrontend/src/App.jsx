@@ -348,7 +348,7 @@ function RouterApp({ setCommentModal, profileRefresh, setProfileRefresh }) {
         <PostModal open={true} onClose={() => navigate(-1)} onSubmit={handlePostCreated} />
       )}
       {isSearchModal && (
-        <SearchModal open={true} onClose={() => navigate(-1)} />
+        <SearchModal open={true} onClose={() => navigate(-1)} user={JSON.parse(localStorage.getItem('user') || 'null')} />
       )}
       <Routes>
         <Route path="/" element={<Feed onCommentClick={handleCommentClick} setProfileRefresh={setProfileRefresh} />} />

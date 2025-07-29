@@ -58,6 +58,11 @@ function PostCard({
     }
   };
 
+  // Early return if post is null/undefined to prevent errors
+  if (!post) {
+    return null;
+  }
+
   const handleRepost = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
     if (!user || reposting) return;
@@ -188,12 +193,12 @@ function PostCard({
         isOpen={showStartChatModal}
         onClose={() => setShowStartChatModal(false)}
         currentUser={user}
-        targetUser={post.User}
+        targetUser={post?.User}
       />
       <SendPostToUserModal
         isOpen={showSendPostToUserModal}
         onClose={() => setShowSendPostToUserModal(false)}
-        post={post}
+        post={post || null}
         onUserSelect={(user) => {
           setSelectedUserForPost(user);
           setShowSendPostToUserModal(false);
