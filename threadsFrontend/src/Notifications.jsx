@@ -97,11 +97,15 @@ function Notifications({ onMessageNotificationClick }) {
   if (loading) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center pt-0 px-0">
-        <div className="sticky top-0 z-10 w-full bg-black/80 backdrop-blur border-b border-neutral-800 flex items-center justify-center py-6 mb-6 shadow-sm">
-          <span className="text-2xl mr-3">🔔</span>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Notifications</h1>
+        <div className="sticky top-0 z-10 w-full bg-black/80 backdrop-blur border-b border-neutral-800 flex items-center py-6 mb-6 shadow-sm">
+          <div className="flex-1"></div>
+          <div className="flex items-center justify-center flex-1">
+            <span className="text-2xl mr-3">🔔</span>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Notifications</h1>
+          </div>
+          <div className="flex-1"></div>
         </div>
-        <div className="w-full max-w-xl px-2 sm:px-0">
+        <div className="w-full max-w-xl px-2 sm:px-0 flex justify-center">
           <div className="text-neutral-500 text-center mt-16">Loading notifications...</div>
         </div>
       </div>
@@ -111,11 +115,15 @@ function Notifications({ onMessageNotificationClick }) {
   if (error) {
     return (
       <div className="min-h-screen bg-black flex flex-col items-center pt-0 px-0">
-        <div className="sticky top-0 z-10 w-full bg-black/80 backdrop-blur border-b border-neutral-800 flex items-center justify-center py-6 mb-6 shadow-sm">
-          <span className="text-2xl mr-3">🔔</span>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Notifications</h1>
+        <div className="sticky top-0 z-10 w-full bg-black/80 backdrop-blur border-b border-neutral-800 flex items-center py-6 mb-6 shadow-sm">
+          <div className="flex-1"></div>
+          <div className="flex items-center justify-center flex-1">
+            <span className="text-2xl mr-3">🔔</span>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Notifications</h1>
+          </div>
+          <div className="flex-1"></div>
         </div>
-        <div className="w-full max-w-xl px-2 sm:px-0">
+        <div className="w-full max-w-xl px-2 sm:px-0 flex justify-center">
           <div className="text-red-500 text-center mt-16">{error}</div>
         </div>
       </div>
@@ -125,30 +133,36 @@ function Notifications({ onMessageNotificationClick }) {
   return (
     <div className="min-h-screen bg-black flex flex-col items-center pt-0 px-0">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-10 w-full bg-black/80 backdrop-blur border-b border-neutral-800 flex items-center justify-center py-6 mb-6 shadow-sm">
-        <span className="text-2xl mr-3">🔔</span>
-        <h1 className="text-2xl font-bold text-white tracking-tight">Notifications</h1>
-        {notifications.some(n => !n.read) && (
-          <button
-            onClick={handleMarkAllRead}
-            className="ml-auto mr-4 text-blue-400 text-sm hover:text-blue-300 transition"
-          >
-            Mark all read
-          </button>
-        )}
+      <div className="sticky top-0 z-10 w-full bg-black/80 backdrop-blur border-b border-neutral-800 flex items-center py-6 mb-6 shadow-sm">
+        <div className="flex-1"></div>
+        <div className="flex items-center justify-center flex-1">
+          <span className="text-2xl mr-3">🔔</span>
+          <h1 className="text-2xl font-bold text-white tracking-tight">Notifications</h1>
+        </div>
+        <div className="flex-1 flex justify-end">
+          {notifications.some(n => !n.read) && (
+            <button
+              onClick={handleMarkAllRead}
+              className="text-blue-400 text-sm hover:text-blue-300 transition"
+            >
+              Mark all read
+            </button>
+          )}
+        </div>
       </div>
-      <div className="w-full max-w-xl px-2 sm:px-0">
+      <div className="w-full max-w-xl px-2 sm:px-0 flex justify-center">
         {notifications.length === 0 ? (
           <div className="text-neutral-500 text-center mt-16">No notifications yet.</div>
         ) : (
-          notifications.map((notif) => (
-            <div
-              key={notif.id}
-              onClick={() => handleNotificationClick(notif)}
-              className={`flex items-start gap-4 bg-neutral-900 border border-neutral-800 rounded-2xl p-5 mb-4 shadow-sm hover:shadow-lg hover:border-neutral-600 transition-all cursor-pointer group ${
-                !notif.read ? 'border-blue-500/50 bg-blue-500/5' : ''
-              }`}
-            >
+          <div className="w-full">
+            {notifications.map((notif) => (
+              <div
+                key={notif.id}
+                onClick={() => handleNotificationClick(notif)}
+                className={`flex items-start gap-4 bg-neutral-900 border border-neutral-800 rounded-2xl p-5 mb-4 shadow-sm hover:shadow-lg hover:border-neutral-600 transition-all cursor-pointer group ${
+                  !notif.read ? 'border-blue-500/50 bg-blue-500/5' : ''
+                }`}
+              >
               <img 
                 src={notif.sender?.profilePicture || 'https://randomuser.me/api/portraits/men/32.jpg'} 
                 alt="avatar" 
@@ -171,7 +185,8 @@ function Notifications({ onMessageNotificationClick }) {
                 )}
               </div>
             </div>
-          ))
+          ))}
+          </div>
         )}
       </div>
     </div>

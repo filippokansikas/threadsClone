@@ -1,14 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { useNotification } from './NotificationContext';
+import PostCard from './PostCard';
 
-function StartChatModal({ isOpen, onClose, currentUser, targetUser }) {
+function StartChatModal({ isOpen, onClose, currentUser, targetUser, postToSend }) {
   const [socket, setSocket] = useState(null);
   const [conversation, setConversation] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const { setNotificationIndicator } = useNotification();
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     if (isOpen && currentUser && targetUser) {
@@ -49,6 +51,13 @@ function StartChatModal({ isOpen, onClose, currentUser, targetUser }) {
     }
   }, [socket, conversation]);
 
+  useEffect(() => {
+    if (isOpen && postToSend) {
+      // Prefill the message input with a reference to the post
+      setNewMessage(`Check out this post: \n@${postToSend.User?.username || ''}: ${postToSend.content}`);
+    }
+  }, [isOpen, postToSend]);
+
   const fetchMessages = async (conversationId) => {
     try {
       const token = localStorage.getItem('token');
@@ -83,7 +92,18 @@ function StartChatModal({ isOpen, onClose, currentUser, targetUser }) {
   };
 
   const sendMessage = () => {
-    if (!newMessage.trim() || !conversation || !socket) return;
+    if ((!newMessage.trim() && !postToSend) || !conversation || !socket) return;
+
+    // If sending a post, send as JSON
+    if (postToSend) {
+      socket.emit('send_message', {
+        conversationId: conversation.id,
+        senderId: currentUser.id,
+        content: JSON.stringify({ type: 'post', post: postToSend })
+      });
+      setNewMessage('');
+      return;
+    }
 
     socket.emit('send_message', {
       conversationId: conversation.id,
@@ -133,25 +153,52 @@ function StartChatModal({ isOpen, onClose, currentUser, targetUser }) {
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex ${message.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}
-            >
+          {messages.map((message) => {
+            let postContent = null;
+            try {
+              const parsed = JSON.parse(message.content);
+              if (parsed.type === 'post' && parsed.post) {
+                postContent = parsed.post;
+              }
+            } catch {}
+            return (
               <div
-                className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
-                  message.senderId === currentUser.id
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-neutral-800 text-white'
-                }`}
+                key={message.id}
+                className={`flex ${message.senderId === currentUser.id ? 'justify-end' : 'justify-start'}`}
               >
-                <p>{message.content}</p>
-                <p className="text-xs opacity-70 mt-1">
-                  {new Date(message.createdAt).toLocaleTimeString()}
-                </p>
+                <div
+                  className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                    message.senderId === currentUser.id
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-neutral-800 text-white'
+                  }`}
+                >
+                  {postContent ? (
+                    <PostCard
+                      post={postContent}
+                      avatar={postContent.User?.profilePicture}
+                      username={postContent.User?.username}
+                      time={new Date(postContent.createdAt).toLocaleString()}
+                      content={postContent.content}
+                      postId={postContent.id}
+                      user={currentUser}
+                      showDropdown={false}
+                      onCommentClick={() => {}}
+                      commentCount={postContent.commentCount || 0}
+                    />
+                  ) : (
+                    <>
+                      <p>{message.content}</p>
+                      <p className="text-xs opacity-70 mt-1">
+                        {new Date(message.createdAt).toLocaleTimeString()}
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
+          <div ref={messagesEndRef} />
         </div>
 
         {/* Message Input */}

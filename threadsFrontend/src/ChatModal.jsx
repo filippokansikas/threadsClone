@@ -151,6 +151,7 @@ function ChatModal({ isOpen, onClose, currentUser }) {
   };
 
   const getOtherUser = (conversation) => {
+    if (!conversation) return null;
     return conversation.user1Id === currentUser.id ? conversation.user2 : conversation.user1;
   };
 
@@ -228,6 +229,7 @@ function ChatModal({ isOpen, onClose, currentUser }) {
             ) : (
               conversations.map((conversation) => {
                 const otherUser = getOtherUser(conversation);
+                if (!otherUser) return null; // Skip if otherUser is null
                 return (
                   <div
                     key={conversation.id}
@@ -264,14 +266,18 @@ function ChatModal({ isOpen, onClose, currentUser }) {
               <div className="p-4 border-b border-neutral-800">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-3">
-                    <img
-                      src={getOtherUser(selectedConversation).profilePicture || 'https://i.pravatar.cc/100'}
-                      alt="avatar"
-                      className="w-8 h-8 rounded-full object-cover"
-                    />
-                    <h3 className="text-white font-semibold">
-                      @{getOtherUser(selectedConversation).username}
-                    </h3>
+                    {getOtherUser(selectedConversation) && (
+                      <>
+                        <img
+                          src={getOtherUser(selectedConversation).profilePicture || 'https://i.pravatar.cc/100'}
+                          alt="avatar"
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                        <h3 className="text-white font-semibold">
+                          @{getOtherUser(selectedConversation).username}
+                        </h3>
+                      </>
+                    )}
                   </div>
                   <button
                     onClick={() => setSelectedConversation(null)}

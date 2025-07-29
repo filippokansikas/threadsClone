@@ -4,7 +4,7 @@ import PostCard from './PostCard';
 import RepostCard from './RepostCard';
 import SettingsModal from './SettingsModal';
 
-function Profile({ onPostCreated, profileRefresh }) {
+function Profile({ onPostCreated, profileRefresh, onCommentClick }) {
   const { username } = useParams();
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -409,6 +409,8 @@ function Profile({ onPostCreated, profileRefresh }) {
                   postId={post.id}
                   user={user}
                   post={post}
+                  onCommentClick={onCommentClick ? () => onCommentClick(post) : undefined}
+                  commentCount={post.commentCount || 0}
                 />
               );
             })
@@ -471,6 +473,8 @@ function Profile({ onPostCreated, profileRefresh }) {
                   user={user}
                   onRepostUpdate={() => fetchPosts()} // Refresh when repost status changes
                   post={originalPost}
+                  onCommentClick={onCommentClick ? () => onCommentClick(originalPost) : undefined}
+                  commentCount={originalPost.commentCount || 0}
                 />
               );
             })

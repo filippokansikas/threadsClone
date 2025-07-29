@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { repostPost, checkRepostStatus, getRepostCount } from './api'
 import StartChatModal from './StartChatModal'
+import SendPostToUserModal from './SendPostToUserModal'
 
 function RepostCard({
   repost,
@@ -31,6 +32,9 @@ function RepostCard({
   const [repostCount, setRepostCount] = useState(0);
   const [reposting, setReposting] = useState(false);
   const [showStartChatModal, setShowStartChatModal] = useState(false);
+  const [showSendPostChatModal, setShowSendPostChatModal] = useState(false);
+  const [showSendPostToUserModal, setShowSendPostToUserModal] = useState(false);
+  const [selectedUserForPost, setSelectedUserForPost] = useState(null);
 
   useEffect(() => {
     if (postId && user) {
@@ -51,6 +55,11 @@ function RepostCard({
       navigate(`/profile/${originalPost.User.username}`);
     }
   };
+
+  // Early return if originalPost is null
+  if (!originalPost) {
+    return null;
+  }
 
   const handleRepost = async (e) => {
     if (e && e.preventDefault) e.preventDefault();
@@ -153,19 +162,9 @@ function RepostCard({
             >
               🔁 <span className="ml-1 text-base">{repostCount}</span>
             </button>
-            <button type="button" className="hover:text-blue-400 transition" title="Share">↗️</button>
-            {user && post.User && post.User.id !== user.id && (
-              <button
-                onClick={() => setShowStartChatModal(true)}
-                className="flex items-center space-x-2 text-neutral-400 hover:text-blue-400 transition-colors"
-                title="Start chat"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
-                <span className="text-sm">Chat</span>
-              </button>
-            )}
+            <button type="button" className="hover:text-blue-400 transition flex items-center" title="Send in Chat" onClick={() => setShowSendPostToUserModal(true)}>
+              ↗️
+            </button>
           </div>
         </div>
         
@@ -202,6 +201,26 @@ function RepostCard({
         onClose={() => setShowStartChatModal(false)}
         currentUser={user}
         targetUser={post.User}
+      />
+      <SendPostToUserModal
+        isOpen={showSendPostToUserModal}
+        onClose={() => setShowSendPostToUserModal(false)}
+        post={originalPost}
+        onUserSelect={(user) => {
+          setSelectedUserForPost(user);
+          setShowSendPostToUserModal(false);
+          setShowSendPostChatModal(true);
+        }}
+      />
+      <StartChatModal
+        isOpen={showSendPostChatModal}
+        onClose={() => {
+          setShowSendPostChatModal(false);
+          setSelectedUserForPost(null);
+        }}
+        currentUser={user}
+        targetUser={selectedUserForPost}
+        postToSend={originalPost}
       />
     </>
   )

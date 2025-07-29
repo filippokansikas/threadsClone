@@ -2,7 +2,22 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('./sequelize');
 
 const Repost = sequelize.define('Repost', {
-  // Additional fields can be added here if needed
+  reposterId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Users',
+      key: 'id'
+    }
+  },
+  originalPostId: {
+    type: DataTypes.INTEGER,
+    allowNull: false,
+    references: {
+      model: 'Posts',
+      key: 'id'
+    }
+  }
 }, {
   timestamps: true,
 });

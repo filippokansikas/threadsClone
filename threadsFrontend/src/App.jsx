@@ -208,6 +208,12 @@ function Feed({ onCommentClick, setProfileRefresh }) {
           } else if (item.type === 'repost') {
             const repost = item.data;
             const originalPost = repost.originalPost;
+            
+            // Skip rendering if originalPost is null (deleted post)
+            if (!originalPost) {
+              return null;
+            }
+            
             const isFollowing = originalPost.User && following.includes(originalPost.User.id);
             const isOwn = user && originalPost.User && originalPost.User.id === user.id;
             const likes = Array.isArray(originalPost.likes) ? originalPost.likes.map(String) : [];
@@ -347,7 +353,8 @@ function RouterApp({ setCommentModal, profileRefresh, setProfileRefresh }) {
       <Routes>
         <Route path="/" element={<Feed onCommentClick={handleCommentClick} setProfileRefresh={setProfileRefresh} />} />
         <Route path="/notifications" element={<Notifications onMessageNotificationClick={handleMessageNotificationClick} />} />
-        <Route path="/profile" element={<Profile onPostCreated={handlePostCreated} profileRefresh={profileRefresh} />} />
+        <Route path="/profile" element={<Profile onPostCreated={handlePostCreated} profileRefresh={profileRefresh} onCommentClick={handleCommentClick} />} />
+        <Route path="/profile/:username" element={<Profile onPostCreated={handlePostCreated} profileRefresh={profileRefresh} onCommentClick={handleCommentClick} />} />
         <Route path="/post" element={null} />
         <Route path="/search" element={null} />
       </Routes>
